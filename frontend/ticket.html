@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HelpDeskAI — Тикет</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__title">HelpDeskAI</div>
+      <nav class="topbar__nav">
+        <a href="/tickets.html" class="active">Лиды</a>
+        <a href="/faq.html">База знаний</a>
+      </nav>
+    </header>
+
+    <main class="content content--split">
+      <section class="panel panel--main">
+        <h1 id="ticketSubject">Тикет</h1>
+        <div id="ticketMeta" class="ticket-meta"></div>
+
+        <div id="messages" class="messages"></div>
+
+        <form id="replyForm" class="form">
+          <h2>Ответ</h2>
+          <textarea name="body" rows="3" required></textarea>
+          <button type="submit">Отправить</button>
+        </form>
+      </section>
+
+      <aside class="panel panel--sidebar">
+        <h2>AI‑панель</h2>
+        <div id="aiSummary" class="ai-block">
+          <h3>Резюме</h3>
+          <p class="placeholder">Здесь будет краткое резюме обращения.</p>
+        </div>
+        <div id="aiInfo" class="ai-block">
+          <h3>Классификация</h3>
+          <p id="aiCategory">Категория: —</p>
+          <p id="aiDepartment">Департамент: —</p>
+          <p id="aiPriority">Приоритет: —</p>
+          <p id="aiStatus">Статус: —</p>
+        </div>
+      </aside>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/ticket_detail.js"></script>
+  </body>
+</html>

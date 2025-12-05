@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HelpDeskAI — База знаний</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__title">HelpDeskAI</div>
+      <nav class="topbar__nav">
+        <a href="/">Дашборд</a>
+        <a href="/tickets.html">Тикеты</a>
+        <a href="/faq.html" class="active">База знаний</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <section class="panel">
+        <h1>Статьи базы знаний</h1>
+        <form id="faqForm" class="form">
+          <h2>Новая статья</h2>
+          <label>
+            Вопрос
+            <input type="text" name="question" required />
+          </label>
+          <label>
+            Ответ
+            <textarea name="answer" rows="4" required></textarea>
+          </label>
+          <label>
+            Язык
+            <select name="language">
+              <option value="ru">Русский</option>
+              <option value="kk">Казахский</option>
+            </select>
+          </label>
+          <label>
+            Код категории
+            <input type="text" name="category_code" placeholder="Например ACCESS_VPN" />
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="auto_resolvable" />
+            Можно использовать для авто‑закрытия
+          </label>
+          <button type="submit">Сохранить</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Список статей</h2>
+        <table class="table" id="faqTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Вопрос</th>
+              <th>Язык</th>
+              <th>Категория</th>
+              <th>Авто‑решение</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/faq.js"></script>
+  </body>
+</html>
+

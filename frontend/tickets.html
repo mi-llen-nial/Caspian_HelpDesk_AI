@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HelpDeskAI — Тикеты</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__title">HelpDeskAI</div>
+      <nav class="topbar__nav">
+        <a href="/tickets.html" class="active">Лиды</a>
+        <a href="/faq.html">База знаний</a>
+      </nav>
+    </header>
+
+    <main class="content">
+      <section class="panel">
+        <h1>Пользователи / Лиды</h1>
+        <div class="filters">
+          <div class="filters__item">
+            <label>
+              Поиск (email / тема)
+              <input type="text" id="searchInput" placeholder="example@company.com" />
+            </label>
+          </div>
+          <div class="filters__item">
+            <label>
+              Статус
+              <select id="statusFilter">
+                <option value="">Все</option>
+                <option value="new">Новый</option>
+                <option value="in_progress">В работе</option>
+                <option value="closed">Закрыт</option>
+                <option value="auto_closed">Авто‑закрыт</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <form id="newTicketForm" class="form">
+          <h2>Создать лид вручную</h2>
+          <label>
+            Тема
+            <input type="text" name="subject" required />
+          </label>
+          <label>
+            Email
+            <input type="text" name="customer_email" placeholder="user@example.com" />
+          </label>
+          <label>
+            Username (например Telegram)
+            <input type="text" name="customer_username" placeholder="@username" />
+          </label>
+          <label>
+            Описание
+            <textarea name="description" rows="4" required></textarea>
+          </label>
+          <label>
+            Язык
+            <select name="language">
+              <option value="ru">Русский</option>
+              <option value="kk">Казахский</option>
+            </select>
+          </label>
+          <button type="submit">Создать</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Список лидов</h2>
+        <table class="table" id="ticketsTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Email</th>
+              <th>Username</th>
+              <th>Тема</th>
+              <th>Источник</th>
+              <th>Приоритет</th>
+              <th>Статус</th>
+              <th>Создан</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/tickets.js"></script>
+  </body>
+</html>
