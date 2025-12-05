@@ -33,8 +33,16 @@ def process_new_ticket(db: Session, data: TicketCreate) -> Ticket:
     text = f"{data.subject}\n\n{data.description}"
     classification = classify_text(text, request_type=data.request_type)
 
+    # Небольшая коррекция категории по ключевым словам,
+    # чтобы, например, запросы про телевидение не попадали в интернет-шаблоны.
+    lower_text = text.lower()
+    if any(kw in lower_text for kw in ("телевиден", "тв ", "iptv", "tv ", "телеканал", "канал ")):
+        if "интернет" not in lower_text:
+            classification.category_code = "CONNECTION_TV"
+
     department = _get_or_create_department(db, classification.department_code)
 
+    now = datetime.utcnow()
     ticket = Ticket(
         subject=data.subject,
         description=data.description,
@@ -49,6 +57,8 @@ def process_new_ticket(db: Session, data: TicketCreate) -> Ticket:
         status=TicketStatus.NEW.value,
         department_id=department.id,
         auto_closed_by_ai=False,
+        ai_disabled=False,
+        status_updated_at=now,
     )
     db.add(ticket)
     db.flush()
@@ -106,9 +116,11 @@ def process_new_ticket(db: Session, data: TicketCreate) -> Ticket:
         )
         db.add(ai_message)
 
+        now = datetime.utcnow()
         ticket.status = TicketStatus.AUTO_CLOSED.value
         ticket.auto_closed_by_ai = True
-        ticket.closed_at = datetime.utcnow()
+        ticket.closed_at = now
+        ticket.status_updated_at = now
 
     db.commit()
     db.refresh(ticket)
@@ -142,6 +154,8 @@ def create_placeholder_telegram_ticket(
         status=TicketStatus.NEW.value,
         department_id=None,
         auto_closed_by_ai=False,
+        ai_disabled=False,
+        status_updated_at=datetime.utcnow(),
     )
     db.add(ticket)
     db.commit()
@@ -173,6 +187,11 @@ def continue_telegram_ticket(
     text = f"{ticket.subject}\n\n{message_text}"
     classification = classify_text(text, request_type=ticket.request_type)
 
+    lower_text = text.lower()
+    if any(kw in lower_text for kw in ("телевиден", "тв ", "iptv", "tv ", "телеканал", "канал ")):
+        if "интернет" not in lower_text:
+            classification.category_code = "CONNECTION_TV"
+
     # Обновляем департамент и параметры тикета
     department = _get_or_create_department(db, classification.department_code)
 
@@ -181,7 +200,12 @@ def continue_telegram_ticket(
     ticket.category_code = classification.category_code
     ticket.priority = classification.priority
     ticket.department_id = department.id
-    ticket.status = TicketStatus.IN_PROGRESS.value
+
+    # Переводим тикет в работу только один раз, чтобы
+    # корректно считать время в этом статусе.
+    if ticket.status != TicketStatus.IN_PROGRESS.value:
+        ticket.status = TicketStatus.IN_PROGRESS.value
+        ticket.status_updated_at = datetime.utcnow()
 
     # Логируем классификацию
     db.add(
@@ -196,35 +220,37 @@ def continue_telegram_ticket(
         )
     )
 
-    # FAQ и ответ: сначала пробуем шаблон, затем ИИ
-    faq = get_best_match(
-        db,
-        classification.category_code,
-        ticket.language,
-        request_type=ticket.request_type,
-    )
-
-    if faq:
-        answer_text = faq.answer
-        answer_lang = faq.language
-    else:
-        faq_snippet = None
-        suggestion = generate_answer(
-            text,
-            language=ticket.language,
-            faq_snippet=faq_snippet,
+    # Если для тикета отключены авто‑ответы ИИ, не формируем AI‑сообщение
+    if not ticket.ai_disabled:
+        # FAQ и ответ: сначала пробуем шаблон, затем ИИ
+        faq = get_best_match(
+            db,
+            classification.category_code,
+            ticket.language,
             request_type=ticket.request_type,
         )
-        answer_text = suggestion.answer
-        answer_lang = suggestion.answer_language
 
-    ai_message = Message(
-        ticket_id=ticket.id,
-        author_type=AuthorType.AI.value,
-        body=answer_text,
-        language=answer_lang,
-    )
-    db.add(ai_message)
+        if faq:
+            answer_text = faq.answer
+            answer_lang = faq.language
+        else:
+            faq_snippet = None
+            suggestion = generate_answer(
+                text,
+                language=ticket.language,
+                faq_snippet=faq_snippet,
+                request_type=ticket.request_type,
+            )
+            answer_text = suggestion.answer
+            answer_lang = suggestion.answer_language
+
+        ai_message = Message(
+            ticket_id=ticket.id,
+            author_type=AuthorType.AI.value,
+            body=answer_text,
+            language=answer_lang,
+        )
+        db.add(ai_message)
 
     db.commit()
     db.refresh(ticket)
@@ -242,6 +268,7 @@ def create_ticket_from_external(db: Session, data: ExternalTicketCreate) -> Tick
         department = _get_or_create_department(db, data.department_code)
         department_id = department.id
 
+    now = datetime.utcnow()
     ticket = Ticket(
         subject=data.subject,
         description=data.description,
@@ -256,6 +283,8 @@ def create_ticket_from_external(db: Session, data: ExternalTicketCreate) -> Tick
         status=data.status,
         department_id=department_id,
         auto_closed_by_ai=data.status == TicketStatus.AUTO_CLOSED.value,
+        ai_disabled=False,
+        status_updated_at=now,
     )
     db.add(ticket)
     db.flush()

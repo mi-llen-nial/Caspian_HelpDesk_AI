@@ -35,7 +35,16 @@ def classify_text(text: str, request_type: str | None = None) -> ClassificationR
         "Поле category_code — это код подкатегории (машиночитаемый ключ), "
         "например CONNECTION_WIFI, CONNECTION_TV, INTERNET_HOME, INTERNET_MOBILE, "
         "BILLING_TARIFF, ACCOUNT_BALANCE, SUPPORT_GENERAL и т.п. "
-        "Не используй пробелы и русские символы в category_code, только латинские буквы, цифры и подчёркивания."
+        "Не используй пробелы и русские символы в category_code, только латинские буквы, цифры и подчёркивания. "
+        "Поле department_code — это код департамента, выбирай один из: "
+        "technical_support (техподдержка интернета и ИТ-услуг), "
+        "tv_support (поддержка ТВ и IPTV), "
+        "billing (биллинг, оплата, тарифы), "
+        "sales (подключения и продажи), "
+        "customer_care (общие вопросы и обращения), "
+        "hr (работа и стажировки), "
+        "partnership (партнёрство и сотрудничество). "
+        "Выбирай наиболее подходящий департамент исходя из сути обращения."
     )
 
     if request_type:

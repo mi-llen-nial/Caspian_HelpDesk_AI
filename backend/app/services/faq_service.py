@@ -72,4 +72,10 @@ def get_best_match(
         if faq:
             return faq
 
-    return base_query.first()
+    # Если категория не указана вообще, можно вернуть общий шаблон (если он есть)
+    if not category_code and not request_type:
+        return base_query.first()
+
+    # Если категория указана, но подходящего шаблона нет — лучше вернуть None,
+    # чтобы ИИ сформировал ответ по тексту, а не использовать случайный шаблон.
+    return None

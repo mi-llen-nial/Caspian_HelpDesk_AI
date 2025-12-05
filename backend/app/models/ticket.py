@@ -38,9 +38,11 @@ class Ticket(Base):
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
 
     auto_closed_by_ai = Column(Boolean, default=False)
+    ai_disabled = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    status_updated_at = Column(DateTime, default=datetime.utcnow)
     closed_at = Column(DateTime, nullable=True)
 
     department = relationship("Department")

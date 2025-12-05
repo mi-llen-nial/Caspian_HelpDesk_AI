@@ -24,6 +24,85 @@ TICKET_ID_PATTERN = re.compile(r"\[HD-(\d+)\]")
 SYSTEM_SENDER_PREFIXES = ("mailer-daemon", "postmaster", "no-reply", "noreply")
 
 
+def _detect_request_type_from_text(text: str) -> str:
+    """Грубая эвристика для определения типа обращения.
+
+    Возможные значения: problem / question / feedback / career / partner / other.
+    """
+
+    lower = (text or "").lower()
+
+    # Карьера / вакансии
+    if any(
+        kw in lower
+        for kw in (
+            "резюме",
+            "ваканс",
+            "работать у вас",
+            "устроиться",
+            "стажиров",
+            "internship",
+        )
+    ):
+        return "career"
+
+    # Партнёрство / сотрудничество
+    if any(
+        kw in lower
+        for kw in (
+            "партнерство",
+            "сотрудничеств",
+            "коллаборац",
+            "совместный проект",
+            "partner",
+        )
+    ):
+        return "partner"
+
+    # Предложение / отзыв
+    if any(
+        kw in lower
+        for kw in (
+            "предложение",
+            "отзыв",
+            "жалоб",
+            "улучш",
+            "предлагаю",
+            "могу предложить",
+            "feedback",
+        )
+    ):
+        return "feedback"
+
+    # Техническая проблема
+    if any(
+        kw in lower
+        for kw in (
+            "не работает",
+            "перестал работать",
+            "пропал интернет",
+            "нет интернета",
+            "обрыв",
+            "плохо работает",
+            "ошибка",
+            "сбой",
+            "проблем",
+            "не могу подключиться",
+            "не открывается",
+            "не загружается",
+        )
+    ):
+        return "problem"
+
+    # Вопрос
+    if "?" in lower or any(
+        kw in lower for kw in ("как ", "где ", "когда ", "можно ли", "что такое")
+    ):
+        return "question"
+
+    return "other"
+
+
 def _decode_mime_header(value: Optional[str]) -> str:
     if not value:
         return ""
@@ -111,6 +190,7 @@ def _handle_new_email_message(
     from_address: str,
     subject: str,
     body: str,
+    from_name: str | None = None,
 ) -> None:
     settings = get_settings()
 
@@ -157,6 +237,8 @@ def _handle_new_email_message(
             return
 
     # Новый тикет из письма
+    request_text = f"{subject or ''}\n\n{body or ''}"
+    request_type = _detect_request_type_from_text(request_text)
     ticket_in = TicketCreate(
         subject=subject or "(без темы)",
         description=body or "",
@@ -165,7 +247,7 @@ def _handle_new_email_message(
         customer_email=from_address,
         customer_username=None,
         external_user_id=None,
-        request_type=None,
+        request_type=request_type,
     )
     ticket = process_new_ticket(db, ticket_in)
 
@@ -202,10 +284,22 @@ def _handle_new_email_message(
         answer_text = suggestion.answer
 
     reply_subject = _build_reply_subject(subject, ticket.id)
+
+    # Префикс к ответу для пользователя
+    name_part = (from_name or "").strip()
+    if name_part:
+        prefix = (
+            f"{name_part}, ваш запрос обработан. "
+            "Мы предлагаем вам следующее решение:\n\n"
+        )
+    else:
+        prefix = "Ваш запрос обработан. Мы предлагаем вам следующее решение:\n\n"
+    reply_body = prefix + (answer_text or "")
+
     _send_email_reply(
         to_address=from_address,
         subject=reply_subject,
-        body=answer_text,
+        body=reply_body,
     )
 
 
@@ -257,9 +351,11 @@ def _auto_close_stale_email_tickets(db, inactivity_minutes: int = 60) -> None:
 
         # Если с момента последнего клиентского сообщения прошло больше порога — закрываем
         if customer_msg.created_at <= threshold:
+            now = datetime.utcnow()
             ticket.status = TicketStatus.AUTO_CLOSED.value
             ticket.auto_closed_by_ai = True
-            ticket.closed_at = datetime.utcnow()
+            ticket.closed_at = now
+            ticket.status_updated_at = now
             db.add(ticket)
 
     db.commit()
@@ -284,36 +380,36 @@ def poll_email_once() -> None:
             return
 
         ids = data[0].split()
-        if not ids:
-            return
 
         db = SessionLocal()
         try:
-            for email_id in ids:
-                try:
-                    status, msg_data = mail.fetch(email_id, "(RFC822)")
-                    if status != "OK":
-                        continue
-                    raw_email = msg_data[0][1]
-                    msg = email.message_from_bytes(raw_email)
+            if ids:
+                for email_id in ids:
+                    try:
+                        status, msg_data = mail.fetch(email_id, "(RFC822)")
+                        if status != "OK":
+                            continue
+                        raw_email = msg_data[0][1]
+                        msg = email.message_from_bytes(raw_email)
 
-                    raw_subject = msg.get("Subject", "")
-                    subject = _decode_mime_header(raw_subject)
-                    from_header = msg.get("From", "")
-                    from_address = email.utils.parseaddr(from_header)[1]
-                    body = _extract_plain_text(msg).strip()
+                        raw_subject = msg.get("Subject", "")
+                        subject = _decode_mime_header(raw_subject)
+                        from_header = msg.get("From", "")
+                        from_name, from_address = email.utils.parseaddr(from_header)
+                        body = _extract_plain_text(msg).strip()
 
-                    _handle_new_email_message(
-                        db=db,
-                        from_address=from_address,
-                        subject=subject,
-                        body=body,
-                    )
+                        _handle_new_email_message(
+                            db=db,
+                            from_address=from_address,
+                            subject=subject,
+                            body=body,
+                            from_name=from_name or None,
+                        )
 
-                    # Помечаем письмо прочитанным
-                    mail.store(email_id, "+FLAGS", "\\Seen")
-                except Exception:
-                    logger.exception("Failed to process email message id=%s", email_id)
+                        # Помечаем письмо прочитанным
+                        mail.store(email_id, "+FLAGS", "\\Seen")
+                    except Exception:
+                        logger.exception("Failed to process email message id=%s", email_id)
 
             # После обработки входящих писем пробуем авто‑закрыть "тихие" тикеты
             _auto_close_stale_email_tickets(db)

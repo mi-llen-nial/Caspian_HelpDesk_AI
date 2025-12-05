@@ -109,16 +109,55 @@ def get_overview_metrics(db: Session) -> OverviewMetrics:
     )
     auto_closed_percent = (auto_closed_count / total_tickets * 100.0) if total_tickets else 0.0
 
-    # Упрощённая метрика: пока нет хранения времени первого ответа, берём время до закрытия авто‑тикетов
+    # SLA по открытым тикетам (NEW + IN_PROGRESS)
+    sla_map = {
+        "P1": 30,   # минуты до целевого решения
+        "P2": 60,
+        "P3": 240,
+        "P4": 1440,
+    }
+    open_sla_ok_tickets = 0
+    open_sla_breached_tickets = 0
+    open_tickets = (
+        db.query(Ticket.priority, Ticket.created_at, Ticket.status)
+        .filter(Ticket.status.in_([TicketStatus.NEW.value, TicketStatus.IN_PROGRESS.value]))
+        .all()
+    )
+    for priority, created_at, status in open_tickets:
+        if not created_at:
+            continue
+        target = sla_map.get(priority, 240)
+        elapsed_minutes = max((now - created_at).total_seconds() / 60.0, 0.0)
+        if elapsed_minutes > target:
+            open_sla_breached_tickets += 1
+        else:
+            open_sla_ok_tickets += 1
+
+    # Упрощённая метрика: пока нет хранения времени первого ответа, берём время до закрытия авто‑тикетов.
+    # Считаем разницу в Python, чтобы не зависеть от специфичных SQL‑функций БД.
     avg_first_response_minutes: float | None = None
     if auto_closed_count:
-        total_minutes = (
-            db.query(func.sum(func.strftime("%s", Ticket.closed_at) - func.strftime("%s", Ticket.created_at)))
-            .filter(Ticket.status == TicketStatus.AUTO_CLOSED.value)
-            .scalar()
+        auto_tickets = (
+            db.query(Ticket.created_at, Ticket.closed_at)
+            .filter(
+                Ticket.status == TicketStatus.AUTO_CLOSED.value,
+                Ticket.created_at.isnot(None),
+                Ticket.closed_at.isnot(None),
+            )
+            .all()
         )
-        if total_minutes:
-            avg_first_response_minutes = float(total_minutes) / 60.0 / auto_closed_count
+        total_seconds = 0.0
+        sample_count = 0
+        for created_at, closed_at in auto_tickets:
+            try:
+                delta = (closed_at - created_at).total_seconds()
+            except Exception:
+                continue
+            if delta is not None and delta >= 0:
+                total_seconds += delta
+                sample_count += 1
+        if sample_count:
+            avg_first_response_minutes = total_seconds / 60.0 / sample_count
 
     # Оценка "точности" по признаку was_corrected
     total_classifications = (
@@ -162,6 +201,8 @@ def get_overview_metrics(db: Session) -> OverviewMetrics:
         in_progress_tickets=in_progress_tickets,
         closed_today=closed_today,
         auto_closed_percent=auto_closed_percent,
+        open_sla_ok_tickets=open_sla_ok_tickets,
+        open_sla_breached_tickets=open_sla_breached_tickets,
         user_auto_closed_tickets=user_auto_closed_tickets,
         avg_first_response_minutes=avg_first_response_minutes,
         classification_accuracy=classification_accuracy,

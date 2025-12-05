@@ -9,6 +9,8 @@ class OverviewMetrics(BaseModel):
     in_progress_tickets: int
     closed_today: int
     auto_closed_percent: float
+    open_sla_ok_tickets: int
+    open_sla_breached_tickets: int
     user_auto_closed_tickets: int
     avg_first_response_minutes: float | None
     classification_accuracy: float | None

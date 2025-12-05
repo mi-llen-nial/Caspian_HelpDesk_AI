@@ -48,6 +48,22 @@ export default function DashboardPage() {
           { key: "P4", label: "P4", value: metrics.p4_tickets },
         ];
 
+  function formatMinutes(value) {
+    if (value == null) return "—";
+    const minutes = Math.round(value);
+    if (minutes <= 0) return "<1 мин";
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${minutes} мин`;
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    if (days > 0) {
+      if (remHours === 0) return `${days} дн`;
+      return `${days} дн ${remHours} ч`;
+    }
+    return `${hours} ч ${mins.toString().padStart(2, "0")} мин`;
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -141,6 +157,16 @@ export default function DashboardPage() {
             loading={loading}
           />
           <StatCard
+            label="Открытые заявки в срок (SLA)"
+            value={metrics?.open_sla_ok_tickets}
+            loading={loading}
+          />
+          <StatCard
+            label="Открытые с нарушением SLA"
+            value={metrics?.open_sla_breached_tickets}
+            loading={loading}
+          />
+          <StatCard
             label="Авто‑закрыто с ответом «Да, спасибо»"
             value={metrics?.user_auto_closed_tickets}
             loading={loading}
@@ -152,6 +178,11 @@ export default function DashboardPage() {
                 ? `${metrics.classification_accuracy.toFixed(1)}%`
                 : "—"
             }
+            loading={loading}
+          />
+          <StatCard
+            label="Среднее время до авто‑решения"
+            value={metrics ? formatMinutes(metrics.avg_first_response_minutes) : null}
             loading={loading}
           />
         </div>

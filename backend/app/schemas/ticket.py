@@ -50,13 +50,21 @@ class TicketRead(BaseModel):
     description: str
     channel: str
     language: str
+    request_type: Optional[str] = None
     customer_email: Optional[str] = None
     customer_username: Optional[str] = None
     category_code: Optional[str] = None
     priority: str
     status: str
+    department_code: Optional[str] = None
     department_name: Optional[str] = None
     auto_closed_by_ai: bool
+    # SLA (рассчитывается на лету на основе приоритета и времени)
+    sla_target_minutes: int
+    sla_elapsed_minutes: float
+    sla_breached: bool
+    status_elapsed_minutes: float
+    ai_disabled: bool = False
     created_at: datetime
     updated_at: datetime
     closed_at: Optional[datetime] = None
@@ -72,6 +80,18 @@ class TicketStatusUpdate(BaseModel):
     status: str = Field(
         ...,
         description="Новый статус тикета (new/in_progress/closed/auto_closed)",
+    )
+    priority: Optional[str] = Field(
+        None,
+        description="Новый приоритет тикета (P1-P4), если нужно изменить",
+    )
+    request_type: Optional[str] = Field(
+        None,
+        description="Новая основная категория обращения (problem/question/feedback/career/partner/other)",
+    )
+    ai_disabled: Optional[bool] = Field(
+        None,
+        description="Отключить ли авто‑ответы ИИ для этого тикета",
     )
 
 

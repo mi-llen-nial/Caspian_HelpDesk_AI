@@ -9,6 +9,23 @@ const STATUS_OPTIONS = [
   { value: "auto_closed", label: "Авто‑закрыт" },
 ];
 
+const PRIORITY_OPTIONS = [
+  { value: "P1", label: "P1" },
+  { value: "P2", label: "P2" },
+  { value: "P3", label: "P3" },
+  { value: "P4", label: "P4" },
+];
+
+const REQUEST_TYPE_OPTIONS = [
+  { value: "", label: "Не указана" },
+  { value: "problem", label: "Что‑то не работает" },
+  { value: "question", label: "Есть вопрос" },
+  { value: "feedback", label: "Предложение или отзыв" },
+  { value: "career", label: "Работа и стажировки" },
+  { value: "partner", label: "Партнёрство и сотрудничество" },
+  { value: "other", label: "Другое" },
+];
+
 export default function TicketDetailsPage() {
   const { id } = useParams();
   const [ticket, setTicket] = useState(null);
@@ -18,10 +35,13 @@ export default function TicketDetailsPage() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [replySuggestions, setReplySuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   useEffect(() => {
     loadTicket({ silent: false });
     loadSummary();
+    loadReplySuggestions();
   }, [id]);
 
   useEffect(() => {
@@ -67,6 +87,40 @@ export default function TicketDetailsPage() {
     }
   }
 
+  async function loadReplySuggestions() {
+    setSuggestionsLoading(true);
+    try {
+      const data = await apiGet(`/tickets/${id}/reply_suggestions`);
+      setReplySuggestions(data.suggestions || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }
+
+  async function updateTicketMeta(patch) {
+    if (!ticket) return;
+    setStatusUpdating(true);
+    try {
+      const payload = {
+        status: patch.status ?? ticket.status,
+        priority: patch.priority ?? ticket.priority,
+        request_type:
+          patch.request_type !== undefined ? patch.request_type : ticket.request_type,
+        ai_disabled:
+          patch.ai_disabled !== undefined ? patch.ai_disabled : ticket.ai_disabled,
+      };
+      const updated = await apiPut(`/tickets/${id}/status`, payload);
+      setTicket((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось обновить параметры тикета");
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
   async function loadSummary() {
     setSummaryLoading(true);
     try {
@@ -82,16 +136,25 @@ export default function TicketDetailsPage() {
   async function handleStatusChange(e) {
     const next = e.target.value;
     if (!ticket || next === ticket.status) return;
-    setStatusUpdating(true);
-    try {
-      const updated = await apiPut(`/tickets/${id}/status`, { status: next });
-      setTicket((prev) => ({ ...prev, ...updated }));
-    } catch (err) {
-      console.error(err);
-      alert("Не удалось изменить статус");
-    } finally {
-      setStatusUpdating(false);
-    }
+    await updateTicketMeta({ status: next });
+  }
+
+  async function handlePriorityChange(e) {
+    const next = e.target.value;
+    if (!ticket || next === ticket.priority) return;
+    await updateTicketMeta({ priority: next });
+  }
+
+  async function handleRequestTypeChange(e) {
+    const next = e.target.value || null;
+    if (!ticket || next === (ticket.request_type || null)) return;
+    await updateTicketMeta({ request_type: next });
+  }
+
+  async function handleToggleAi(e) {
+    const next = e.target.checked;
+    if (!ticket || next === ticket.ai_disabled) return;
+    await updateTicketMeta({ ai_disabled: next });
   }
 
   if (loading || !ticket) {
@@ -110,22 +173,64 @@ export default function TicketDetailsPage() {
           Тикет #{ticket.id} · <span className="ticket__subject">{ticket.subject}</span>
         </h1>
         <div className="ticket-meta">
-          Статус:{" "}
-          <select
-            value={ticket.status}
-            onChange={handleStatusChange}
-            disabled={statusUpdating}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>{" "}
-          • Приоритет: <strong>{ticket.priority}</strong> • Источник:{" "}
-          <strong>{ticket.channel}</strong> • Email:{" "}
-          <strong>{ticket.customer_email || "—"}</strong> • Username:{" "}
-          <strong>{ticket.customer_username || "—"}</strong>
+          <div className="ticket-meta__row ticket-meta__row--controls">
+            <div className="ticket-meta__group">
+              <span className="ticket-meta__label">Статус</span>
+              <select
+                value={ticket.status}
+                onChange={handleStatusChange}
+                disabled={statusUpdating}
+                className="ticket-meta__select"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="ticket-meta__group">
+              <span className="ticket-meta__label">Приоритет</span>
+              <select
+                value={ticket.priority}
+                onChange={handlePriorityChange}
+                disabled={statusUpdating}
+                className="ticket-meta__select"
+              >
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="ticket-meta__group ticket-meta__group--wide">
+              <span className="ticket-meta__label">Категория</span>
+              <select
+                value={ticket.request_type || ""}
+                onChange={handleRequestTypeChange}
+                disabled={statusUpdating}
+                className="ticket-meta__select"
+              >
+                {REQUEST_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="ticket-meta__row">
+            <span>
+              Источник: <strong>{ticket.channel}</strong>
+            </span>
+            <span>
+              Email: <strong>{ticket.customer_email || "—"}</strong>
+            </span>
+            <span>
+              Username: <strong>{ticket.customer_username || "—"}</strong>
+            </span>
+          </div>
         </div>
 
         <div className="messages">
@@ -153,6 +258,42 @@ export default function TicketDetailsPage() {
             {sending ? "Отправка..." : "Отправить"}
           </button>
         </form>
+
+        <div className="quick-replies">
+          <div className="quick-replies__header">
+            <span className="quick-replies__title">Готовые ответы</span>
+            <button
+              type="button"
+              className="btn btn--ghost quick-replies__refresh"
+              onClick={loadReplySuggestions}
+              disabled={suggestionsLoading}
+            >
+              {suggestionsLoading ? "Обновление..." : "Обновить варианты"}
+            </button>
+          </div>
+          {suggestionsLoading && !replySuggestions.length ? (
+            <div className="quick-replies__empty">
+              <span className="skeleton skeleton--text" />
+            </div>
+          ) : replySuggestions.length === 0 ? (
+            <div className="quick-replies__empty">
+              Нет готовых вариантов, обновите позже.
+            </div>
+          ) : (
+            <div className="quick-replies__chips">
+              {replySuggestions.map((s, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className="quick-replies__chip"
+                  onClick={() => setReply(s)}
+                >
+                  Вариант {idx + 1}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <aside className="panel panel--sidebar">
@@ -163,6 +304,18 @@ export default function TicketDetailsPage() {
           <p>Департамент: {ticket.department_name || "—"}</p>
           <p>Приоритет: {ticket.priority}</p>
           <p>Статус: {ticket.status}</p>
+        </div>
+        <div className="ai-block">
+          <h3>Управление ИИ</h3>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={ticket.ai_disabled}
+              onChange={handleToggleAi}
+              disabled={statusUpdating}
+            />{" "}
+            Не использовать авто‑ответы ИИ в этом тикете
+          </label>
         </div>
         <div className="ai-block">
           <h3>Резюме</h3>

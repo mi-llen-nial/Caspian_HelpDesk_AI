@@ -18,3 +18,6 @@ class AnswerSuggestion(BaseModel):
     answer: str
     answer_language: str
 
+
+class ReplySuggestions(BaseModel):
+    suggestions: list[str]

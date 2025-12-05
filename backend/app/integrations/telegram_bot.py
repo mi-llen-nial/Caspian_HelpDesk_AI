@@ -35,6 +35,20 @@ CATEGORY_CHOICES: Dict[str, str] = {
 USER_STATE: Dict[int, Dict[str, str]] = {}
 
 
+def build_answer_with_greeting(first_name: str | None, answer: str) -> str:
+    """Добавляет персональное приветствие к ответу ИИ."""
+
+    name_part = (first_name or "").strip()
+    if name_part:
+        prefix = (
+            f"{name_part}, ваш запрос обработан. "
+            "Мы предлагаем вам следующее решение:\n\n"
+        )
+    else:
+        prefix = "Ваш запрос обработан. Мы предлагаем вам следующее решение:\n\n"
+    return prefix + (answer or "")
+
+
 def detect_language_from_text(text: str, fallback: str = "ru") -> str:
   """Простейшая детекция языка по алфавиту."""
   has_cyrillic = any("а" <= ch <= "я" or "А" <= ch <= "Я" for ch in text)
@@ -58,7 +72,7 @@ async def cmd_start(message: Message) -> None:
         for key, label in CATEGORY_CHOICES.items()
     ]
     await message.answer(
-        f"Добро пожаловать {message.from_user.first_name}! \n\nПожалуйста выберите категорию которая соответствует вашему запросу:",
+        f"Здравствуйте, {message.from_user.first_name}! \n\nЯ ваш личный асситент от компании Казахтелеком \n\nПожалуйста выберите категорию которая соответствует вашему запросу:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
 
@@ -220,12 +234,14 @@ async def handle_text(message: Message) -> None:
         db.close()
 
     # Заменяем сообщение «запрос в обработке» финальным ответом
+    first_name = message.from_user.first_name if message.from_user else None
+    final_text = build_answer_with_greeting(first_name, answer_text)
     try:
-        await processing_msg.edit_text(answer_text)
+        await processing_msg.edit_text(final_text)
     except Exception:
         # Если редактирование не удалось (например, сообщение удалено),
         # отправляем ответ отдельным сообщением.
-        await message.answer(answer_text)
+        await message.answer(final_text)
 
     # Спрашиваем, помог ли ответ
     if ticket and ticket.status != TicketStatus.CLOSED.value:
@@ -258,7 +274,9 @@ async def handle_close(callback: CallbackQuery) -> None:
             ticket.auto_closed_by_ai = True
             from datetime import datetime
 
-            ticket.closed_at = datetime.utcnow()
+            now = datetime.utcnow()
+            ticket.closed_at = now
+            ticket.status_updated_at = now
             db.commit()
         USER_STATE.pop(chat_id, None)
     finally:
