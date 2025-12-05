@@ -21,6 +21,7 @@ from app.schemas.ticket import TicketCreate
 logger = logging.getLogger(__name__)
 
 TICKET_ID_PATTERN = re.compile(r"\[HD-(\d+)\]")
+SYSTEM_SENDER_PREFIXES = ("mailer-daemon", "postmaster", "no-reply", "noreply")
 
 
 def _decode_mime_header(value: Optional[str]) -> str:
@@ -115,6 +116,12 @@ def _handle_new_email_message(
 
     if from_address.lower() == (settings.email_username or "").lower():
         # Это наше собственное письмо — не создаём тикет
+        return
+
+    local_part = (from_address.split("@", 1)[0] or "").lower()
+    if local_part in SYSTEM_SENDER_PREFIXES:
+        # Системные письма (bounce/уведомления) пропускаем и не отвечаем на них
+        logger.info("Skip system email from %s", from_address)
         return
 
     ticket_id = _parse_ticket_id_from_subject(subject)
@@ -259,7 +266,7 @@ def _auto_close_stale_email_tickets(db, inactivity_minutes: int = 60) -> None:
 
 
 def poll_email_once() -> None:
-    """Однократная обработка новых писем в Outlook."""
+    """Однократная обработка новых писем по IMAP."""
 
     settings = get_settings()
     if not (settings.email_enabled and settings.email_username and settings.email_password):
@@ -330,7 +337,7 @@ def main_loop(poll_interval_seconds: int = 5) -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         level=logging.INFO,
     )
-    logger.info("Starting Outlook email worker")
+    logger.info("Starting email worker")
     while True:
         try:
             poll_email_once()

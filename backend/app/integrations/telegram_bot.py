@@ -172,34 +172,47 @@ async def handle_text(message: Message) -> None:
         if ai_message:
             answer_text = ai_message.body
         else:
-            # Дополнительный вызов генератора в редких случаях, если AI‑сообщение не было создано
-            faq_snippet = None
+            # Дополнительный ответ, если AI‑сообщение не было создано
             try:
-                faq = get_best_match(db, ticket.category_code, ticket.language)
+                faq = get_best_match(
+                    db,
+                    ticket.category_code,
+                    ticket.language,
+                    request_type=ticket.request_type,
+                )
             except Exception:
                 faq = None
+
             if faq:
-                faq_snippet = f"Вопрос: {faq.question}\nОтвет: {faq.answer}"
+                answer_text = faq.answer
+                ai_message = DbMessage(
+                    ticket_id=ticket.id,
+                    author_type=AuthorType.AI.value,
+                    body=answer_text,
+                    language=faq.language,
+                )
+                db.add(ai_message)
+                db.commit()
+            else:
+                full_text = f"Категория обращения (выбрана пользователем): {subject}\n\nСообщение клиента:\n{description}"
+                answer_language = ticket.language or msg_language
+                suggestion = generate_answer(
+                    full_text,
+                    language=answer_language,
+                    faq_snippet=None,
+                    request_type=ticket.request_type,
+                )
 
-            full_text = f"Категория обращения (выбрана пользователем): {subject}\n\nСообщение клиента:\n{description}"
-            answer_language = ticket.language or msg_language
-            suggestion = generate_answer(
-                full_text,
-                language=answer_language,
-                faq_snippet=faq_snippet,
-                request_type=ticket.request_type,
-            )
+                ai_message = DbMessage(
+                    ticket_id=ticket.id,
+                    author_type=AuthorType.AI.value,
+                    body=suggestion.answer,
+                    language=suggestion.answer_language,
+                )
+                db.add(ai_message)
+                db.commit()
 
-            ai_message = DbMessage(
-                ticket_id=ticket.id,
-                author_type=AuthorType.AI.value,
-                body=suggestion.answer,
-                language=suggestion.answer_language,
-            )
-            db.add(ai_message)
-            db.commit()
-
-            answer_text = suggestion.answer
+                answer_text = suggestion.answer
     except Exception:
         logger.exception("Ошибка при обработке сообщения Telegram")
         answer_text = "Произошла ошибка при обработке обращения. Попробуйте позже."

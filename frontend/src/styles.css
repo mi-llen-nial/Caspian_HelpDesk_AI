@@ -198,6 +198,90 @@ a {
   font-size: 1rem;
 }
 
+.chart {
+  margin-top: 1rem;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 0.75rem;
+}
+
+.chart__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 3fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.chart__label {
+  color: #6b7280;
+}
+
+.chart__bar-wrapper {
+  height: 0.6rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.chart__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.chart__value {
+  font-weight: 600;
+  text-align: right;
+}
+
+.chart__empty {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+/* Цвета для категорий */
+.chart__bar-fill--categories-problem {
+  background: linear-gradient(90deg, #f97316, #ea580c);
+}
+
+.chart__bar-fill--categories-question {
+  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+}
+
+.chart__bar-fill--categories-feedback {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.chart__bar-fill--categories-career {
+  background: linear-gradient(90deg, #a855f7, #7c3aed);
+}
+
+.chart__bar-fill--categories-partner {
+  background: linear-gradient(90deg, #06b6d4, #0891b2);
+}
+
+.chart__bar-fill--categories-other {
+  background: linear-gradient(90deg, #9ca3af, #6b7280);
+}
+
+/* Цвета для приоритетов */
+.chart__bar-fill--priorities-p1 {
+  background: #22c55e;
+}
+
+.chart__bar-fill--priorities-p2 {
+  background: #eab308;
+}
+
+.chart__bar-fill--priorities-p3 {
+  background: #f97316;
+}
+
+.chart__bar-fill--priorities-p4 {
+  background: #ef4444;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -206,6 +290,29 @@ a {
 
 .filters__item {
   min-width: 220px;
+}
+
+.filters-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.filters-tab {
+  font-size: 0.85rem;
+  padding-inline: 0.8rem;
+}
+
+.filters-tab--active {
+  background: rgba(37, 99, 235, 0.12);
+  color: #0f172a;
+}
+
+.filters__checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.25rem;
 }
 
 .form {
@@ -296,6 +403,16 @@ select:focus {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+}
+
+.leads-table th:nth-child(4),
+.leads-table td:nth-child(4) {
+  max-width: 260px;
+}
+
+.leads-table th:nth-child(7),
+.leads-table td:nth-child(7) {
+  width: 120px;
 }
 
 .table th,

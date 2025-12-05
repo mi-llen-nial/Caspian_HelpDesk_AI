@@ -9,51 +9,83 @@ const STATUS_LABELS = {
   auto_closed: "Авто‑закрыт",
 };
 
+const ACTIVE_STATUSES = ["new", "in_progress"];
+const CLOSED_STATUSES = ["closed", "auto_closed"];
+
 export default function LeadsPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
+  const [viewMode, setViewMode] = useState("active"); // active | closed | all
+  const [selectedStatuses, setSelectedStatuses] = useState(ACTIVE_STATUSES);
+  const [selectedPriorities, setSelectedPriorities] = useState([]);
+  const [channelFilter, setChannelFilter] = useState("all"); // all | telegram | email | portal
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadTickets();
-  }, [statusFilter]);
+    loadTickets({ silent: false });
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
-      loadTickets();
+      loadTickets({ silent: true });
     }, 5000);
     return () => clearInterval(id);
-  }, [statusFilter]);
+  }, []);
 
-  async function loadTickets() {
-    setLoading(true);
+  async function loadTickets({ silent } = { silent: false }) {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
-      const params = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : "";
-      const data = await apiGet(`/tickets${params}`);
+      const data = await apiGet(`/tickets`);
       setTickets(data);
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
+  }
+
+  function applyView(mode) {
+    setViewMode(mode);
+    if (mode === "active") {
+      setSelectedStatuses(ACTIVE_STATUSES);
+    } else if (mode === "closed") {
+      setSelectedStatuses(CLOSED_STATUSES);
+    } else {
+      setSelectedStatuses([...ACTIVE_STATUSES, ...CLOSED_STATUSES]);
+    }
+  }
+
+  function toggleStatus(status) {
+    setSelectedStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status],
+    );
+  }
+
+  function togglePriority(priority) {
+    setSelectedPriorities((prev) =>
+      prev.includes(priority) ? prev.filter((p) => p !== priority) : [...prev, priority],
+    );
   }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tickets.filter((t) => {
-      if (statusFilter && t.status !== statusFilter) return false;
-      if (priorityFilter && t.priority !== priorityFilter) return false;
+      if (selectedStatuses.length && !selectedStatuses.includes(t.status)) return false;
+      if (selectedPriorities.length && !selectedPriorities.includes(t.priority)) return false;
+      if (channelFilter !== "all" && t.channel !== channelFilter) return false;
       if (!q) return true;
       const haystack = `${t.subject || ""} ${t.customer_email || ""} ${
         t.customer_username || ""
       }`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [tickets, search, statusFilter, priorityFilter]);
+  }, [tickets, search, selectedStatuses, selectedPriorities, channelFilter]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -102,6 +134,35 @@ export default function LeadsPage() {
       </div>
 
       <section className="panel">
+        <div className="filters-tabs">
+          <button
+            type="button"
+            className={`btn btn--ghost filters-tab${
+              viewMode === "active" ? " filters-tab--active" : ""
+            }`}
+            onClick={() => applyView("active")}
+          >
+            Активные
+          </button>
+          <button
+            type="button"
+            className={`btn btn--ghost filters-tab${
+              viewMode === "closed" ? " filters-tab--active" : ""
+            }`}
+            onClick={() => applyView("closed")}
+          >
+            Закрытые
+          </button>
+          <button
+            type="button"
+            className={`btn btn--ghost filters-tab${
+              viewMode === "all" ? " filters-tab--active" : ""
+            }`}
+            onClick={() => applyView("all")}
+          >
+            Все
+          </button>
+        </div>
         <div className="filters">
           <div className="filters__item">
             <label className="label">
@@ -115,32 +176,72 @@ export default function LeadsPage() {
             </label>
           </div>
           <div className="filters__item">
-            <label className="label">
-              Статус
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="">Все</option>
-                <option value="new">Новый</option>
-                <option value="in_progress">В работе</option>
-                <option value="closed">Закрыт</option>
-                <option value="auto_closed">Авто‑закрыт</option>
-              </select>
-            </label>
+            <div className="label">
+              Статусы
+              <div className="filters__checkbox-row">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes("new")}
+                    onChange={() => toggleStatus("new")}
+                  />
+                  Новый
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes("in_progress")}
+                    onChange={() => toggleStatus("in_progress")}
+                  />
+                  В работе
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes("closed")}
+                    onChange={() => toggleStatus("closed")}
+                  />
+                  Закрыт
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes("auto_closed")}
+                    onChange={() => toggleStatus("auto_closed")}
+                  />
+                  Авто‑закрыт
+                </label>
+              </div>
+            </div>
+          </div>
+          <div className="filters__item">
+            <div className="label">
+              Приоритеты
+              <div className="filters__checkbox-row">
+                {["P1", "P2", "P3", "P4"].map((p) => (
+                  <label key={p} className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedPriorities.includes(p)}
+                      onChange={() => togglePriority(p)}
+                    />
+                    {p}
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="filters__item">
             <label className="label">
-              Приоритет
+              Источник
               <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
+                value={channelFilter}
+                onChange={(e) => setChannelFilter(e.target.value)}
               >
-                <option value="">Все</option>
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-                <option value="P4">P4</option>
+                <option value="all">Все</option>
+                <option value="telegram">Telegram</option>
+                <option value="email">Email</option>
+                <option value="portal">Портал</option>
               </select>
             </label>
           </div>
@@ -150,7 +251,7 @@ export default function LeadsPage() {
       <section className="panel">
         <h2 className="panel__title">Список лидов</h2>
         <div className="table-wrapper">
-          <table className="table">
+          <table className="table leads-table">
             <thead>
               <tr>
                 <th>ID</th>

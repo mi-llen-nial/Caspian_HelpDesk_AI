@@ -68,6 +68,13 @@ class TicketDetails(TicketRead):
     messages: List[MessageRead] = []
 
 
+class TicketStatusUpdate(BaseModel):
+    status: str = Field(
+        ...,
+        description="Новый статус тикета (new/in_progress/closed/auto_closed)",
+    )
+
+
 class ExternalTicketCreate(BaseModel):
     """Создание тикета внешним источником (например, обработчиком почты Outlook).
 

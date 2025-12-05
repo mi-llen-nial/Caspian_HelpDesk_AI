@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -5,15 +6,18 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.models.message import AuthorType, Message
-from app.models.ticket import Ticket
+from app.models.ticket import Ticket, TicketStatus
 from app.integrations.telegram_sender import send_text_message
+from app.ai.summarizer import summarize_conversation
+from app.schemas.ai import SummaryResult
 from app.schemas.ticket import (
+    ExternalTicketCreate,
     MessageCreate,
     MessageRead,
     TicketCreate,
     TicketDetails,
-    ExternalTicketCreate,
     TicketRead,
+    TicketStatusUpdate,
 )
 from app.services.routing_service import create_ticket_from_external, process_new_ticket
 
@@ -99,6 +103,72 @@ def add_message(ticket_id: int, data: MessageCreate, db: Session = Depends(get_d
             )
 
     return MessageRead.from_orm(msg)
+
+
+@router.put("/{ticket_id}/status", response_model=TicketRead)
+def update_ticket_status(
+    ticket_id: int,
+    data: TicketStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    """Обновление статуса тикета вручную из интерфейса оператора."""
+
+    ticket: Ticket | None = db.query(Ticket).get(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    if data.status not in {
+        TicketStatus.NEW.value,
+        TicketStatus.IN_PROGRESS.value,
+        TicketStatus.CLOSED.value,
+        TicketStatus.AUTO_CLOSED.value,
+    }:
+        raise HTTPException(status_code=400, detail="Unsupported ticket status")
+
+    ticket.status = data.status
+
+    if data.status in {TicketStatus.CLOSED.value, TicketStatus.AUTO_CLOSED.value}:
+        ticket.closed_at = datetime.utcnow()
+    else:
+        ticket.closed_at = None
+
+    # Ручное изменение — считаем, что это не авто‑закрытие
+    if data.status != TicketStatus.AUTO_CLOSED.value:
+        ticket.auto_closed_by_ai = False
+
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+    return _ticket_to_read(ticket)
+
+
+@router.get("/{ticket_id}/summary", response_model=SummaryResult)
+def get_ticket_summary(ticket_id: int, db: Session = Depends(get_db)) -> SummaryResult:
+    """Краткое резюме диалога по тикету для второй линии."""
+
+    ticket: Ticket | None = db.query(Ticket).get(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    messages = (
+        db.query(Message)
+        .filter(Message.ticket_id == ticket_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    if messages:
+        parts: list[str] = []
+        for m in messages:
+            role = m.author_type
+            ts = m.created_at.strftime("%Y-%m-%d %H:%M")
+            parts.append(f"{role} ({ts}): {m.body}")
+        text = "\n".join(parts)
+    else:
+        text = ticket.description or ""
+
+    language = ticket.language or "ru"
+    return summarize_conversation(text, language=language)
 
 
 def _ticket_to_read(ticket: Ticket) -> TicketRead:

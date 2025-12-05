@@ -46,9 +46,30 @@ def delete_faq(db: Session, faq_id: int) -> None:
     db.commit()
 
 
-def get_best_match(db: Session, category_code: str | None, language: str) -> Optional[FAQ]:
-    """Простейший поиск статьи по категории и языку."""
-    query = db.query(FAQ).filter(FAQ.language == language, FAQ.auto_resolvable.is_(True))
+def get_best_match(
+    db: Session,
+    category_code: str | None,
+    language: str,
+    request_type: str | None = None,
+) -> Optional[FAQ]:
+    """Поиск шаблона по подкатегории и языку.
+
+    Поддерживает два формата кодов в БД:
+    - полный код вида "problem:CONNECTION_WIFI" (основная категория + подкатегория);
+    - старый код только с подкатегорией, например "CONNECTION_WIFI".
+    """
+
+    base_query = db.query(FAQ).filter(FAQ.language == language, FAQ.auto_resolvable.is_(True))
+
+    if category_code and request_type:
+        full_code = f"{request_type}:{category_code}"
+        faq = base_query.filter(FAQ.category_code == full_code).first()
+        if faq:
+            return faq
+
     if category_code:
-        query = query.filter(FAQ.category_code == category_code)
-    return query.first()
+        faq = base_query.filter(FAQ.category_code == category_code).first()
+        if faq:
+            return faq
+
+    return base_query.first()

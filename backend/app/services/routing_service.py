@@ -77,23 +77,32 @@ def process_new_ticket(db: Session, data: TicketCreate) -> Ticket:
 
     # Попытка авто‑закрытия
     if classification.auto_resolvable and classification.confidence >= AUTO_CLOSE_CONFIDENCE_THRESHOLD:
-        faq = get_best_match(db, classification.category_code, classification.language)
-        faq_snippet = None
-        if faq:
-            faq_snippet = f"Вопрос: {faq.question}\nОтвет: {faq.answer}"
-
-        suggestion = generate_answer(
-            text,
-            language=classification.language,
-            faq_snippet=faq_snippet,
+        faq = get_best_match(
+            db,
+            classification.category_code,
+            classification.language,
             request_type=data.request_type,
         )
+        if faq:
+            # Если есть подходящий шаблон, используем его напрямую
+            answer_text = faq.answer
+            answer_lang = faq.language
+        else:
+            faq_snippet = None
+            suggestion = generate_answer(
+                text,
+                language=classification.language,
+                faq_snippet=faq_snippet,
+                request_type=data.request_type,
+            )
+            answer_text = suggestion.answer
+            answer_lang = suggestion.answer_language
 
         ai_message = Message(
             ticket_id=ticket.id,
             author_type=AuthorType.AI.value,
-            body=suggestion.answer,
-            language=suggestion.answer_language,
+            body=answer_text,
+            language=answer_lang,
         )
         db.add(ai_message)
 
@@ -187,24 +196,33 @@ def continue_telegram_ticket(
         )
     )
 
-    # FAQ и ответ ИИ
-    faq = get_best_match(db, classification.category_code, ticket.language)
-    faq_snippet = None
-    if faq:
-        faq_snippet = f"Вопрос: {faq.question}\nОтвет: {faq.answer}"
-
-    suggestion = generate_answer(
-        text,
-        language=ticket.language,
-        faq_snippet=faq_snippet,
+    # FAQ и ответ: сначала пробуем шаблон, затем ИИ
+    faq = get_best_match(
+        db,
+        classification.category_code,
+        ticket.language,
         request_type=ticket.request_type,
     )
+
+    if faq:
+        answer_text = faq.answer
+        answer_lang = faq.language
+    else:
+        faq_snippet = None
+        suggestion = generate_answer(
+            text,
+            language=ticket.language,
+            faq_snippet=faq_snippet,
+            request_type=ticket.request_type,
+        )
+        answer_text = suggestion.answer
+        answer_lang = suggestion.answer_language
 
     ai_message = Message(
         ticket_id=ticket.id,
         author_type=AuthorType.AI.value,
-        body=suggestion.answer,
-        language=suggestion.answer_language,
+        body=answer_text,
+        language=answer_lang,
     )
     db.add(ai_message)
 

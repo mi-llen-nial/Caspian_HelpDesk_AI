@@ -1,18 +1,37 @@
 import React, { useEffect, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "../api.js";
 
+const MAIN_CATEGORY_LABELS = {
+  problem: "Что‑то не работает",
+  question: "Есть вопрос",
+  feedback: "Предложение или отзыв",
+  career: "Работа и стажировки",
+  partner: "Партнёрство и сотрудничество",
+  other: "Другое",
+};
+
+function splitCategoryCode(code) {
+  if (!code) return { main: "", sub: "" };
+  const [maybeMain, maybeSub] = code.split(":", 2);
+  if (maybeSub) {
+    return { main: maybeMain, sub: maybeSub };
+  }
+  return { main: "", sub: maybeMain };
+}
+
 export default function FaqPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-   const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     question: "",
     answer: "",
     language: "ru",
-    category_code: "",
     auto_resolvable: false,
   });
+  const [mainCategory, setMainCategory] = useState("");
+  const [subCategory, setSubCategory] = useState("");
 
   useEffect(() => {
     loadFaq();
@@ -32,13 +51,15 @@ export default function FaqPage() {
 
   function startEdit(item) {
     setEditingId(item.id);
+    const { main, sub } = splitCategoryCode(item.category_code || "");
     setForm({
       question: item.question,
       answer: item.answer,
       language: item.language,
-      category_code: item.category_code || "",
       auto_resolvable: item.auto_resolvable,
     });
+    setMainCategory(main);
+    setSubCategory(sub);
   }
 
   function resetForm() {
@@ -47,19 +68,25 @@ export default function FaqPage() {
       question: "",
       answer: "",
       language: "ru",
-      category_code: "",
       auto_resolvable: false,
     });
+    setMainCategory("");
+    setSubCategory("");
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (creating) return;
+    let category_code = null;
+    if (subCategory.trim()) {
+      category_code = mainCategory ? `${mainCategory}:${subCategory.trim()}` : subCategory.trim();
+    }
+
     const payload = {
       question: form.question,
       answer: form.answer,
       language: form.language,
-      category_code: form.category_code || null,
+      category_code,
       auto_resolvable: form.auto_resolvable,
     };
     setCreating(true);
@@ -97,9 +124,9 @@ export default function FaqPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1>База знаний</h1>
+          <h1>Шаблоны ответов</h1>
           <p className="page-header__subtitle">
-            Статьи и ответы, которые использует ИИ для авто‑решения обращений.
+            Готовые ответы по категориям, которые бот использует вместо генерации, когда есть подходящий шаблон.
           </p>
         </div>
       </div>
@@ -130,7 +157,7 @@ export default function FaqPage() {
             />
           </label>
           <label className="label">
-            Язык
+            Язык ответа
             <select
               name="language"
               value={form.language}
@@ -141,14 +168,31 @@ export default function FaqPage() {
             </select>
           </label>
           <label className="label">
-            Код категории
+            Основная категория
+            <select
+              value={mainCategory}
+              onChange={(e) => setMainCategory(e.target.value)}
+            >
+              <option value="">Не указана</option>
+              {Object.entries(MAIN_CATEGORY_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="label">
+            Код подкатегории
             <input
               type="text"
-              name="category_code"
-              placeholder="Например ACCESS_VPN"
-              value={form.category_code}
-              onChange={(e) => setForm((f) => ({ ...f, category_code: e.target.value }))}
+              name="subcategory_code"
+              placeholder="Например CONNECTION_WIFI, INTERNET_HOME"
+              value={subCategory}
+              onChange={(e) => setSubCategory(e.target.value)}
             />
+            <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+              Используйте машиночитаемые коды: CONNECTION_WIFI, CONNECTION_TV, BILLING_TARIFF и т.п.
+            </span>
           </label>
           <label className="checkbox">
             <input
@@ -182,7 +226,7 @@ export default function FaqPage() {
       </section>
 
       <section className="panel">
-        <h2 className="panel__title">Статьи</h2>
+        <h2 className="panel__title">Шаблоны</h2>
         <div className="table-wrapper">
           <table className="table">
             <thead>
@@ -191,6 +235,7 @@ export default function FaqPage() {
                 <th>Вопрос</th>
                 <th>Язык</th>
                 <th>Категория</th>
+                <th>Подкатегория</th>
                 <th>Авто‑решение</th>
                 <th />
               </tr>
@@ -214,7 +259,8 @@ export default function FaqPage() {
                     <td>{f.id}</td>
                     <td className="table__cell--main">{f.question}</td>
                     <td>{f.language}</td>
-                    <td>{f.category_code || "—"}</td>
+                    <td>{splitCategoryCode(f.category_code || "").main ? MAIN_CATEGORY_LABELS[splitCategoryCode(f.category_code || "").main] || splitCategoryCode(f.category_code || "").main : "—"}</td>
+                    <td>{splitCategoryCode(f.category_code || "").sub || "—"}</td>
                     <td>{f.auto_resolvable ? "Да" : "Нет"}</td>
                     <td>
                       <button

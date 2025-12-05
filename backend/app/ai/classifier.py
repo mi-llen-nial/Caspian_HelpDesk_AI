@@ -31,7 +31,11 @@ def classify_text(text: str, request_type: str | None = None) -> ClassificationR
         "приоритет (P1-P4), язык (ru или kk) и можно ли автоматически "
         "решить запрос. Верни строго JSON с полями: "
         "category_code, department_code, priority, language, "
-        "auto_resolvable, confidence (0-1)."
+        "auto_resolvable, confidence (0-1). "
+        "Поле category_code — это код подкатегории (машиночитаемый ключ), "
+        "например CONNECTION_WIFI, CONNECTION_TV, INTERNET_HOME, INTERNET_MOBILE, "
+        "BILLING_TARIFF, ACCOUNT_BALANCE, SUPPORT_GENERAL и т.п. "
+        "Не используй пробелы и русские символы в category_code, только латинские буквы, цифры и подчёркивания."
     )
 
     if request_type:
