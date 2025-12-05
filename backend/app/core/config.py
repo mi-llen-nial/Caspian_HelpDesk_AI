@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str | None = None
 
+    # Email (Outlook)
+    email_enabled: bool = False
+    email_imap_host: str = "outlook.office365.com"
+    email_imap_port: int = 993
+    email_smtp_host: str = "smtp.office365.com"
+    email_smtp_port: int = 587
+    email_username: str | None = None
+    email_password: str | None = None
+    email_from_name: str = "Kazakhtelecom HelpDesk"
+
     # CORS
     allowed_origins: list[str] = ["*"]
 

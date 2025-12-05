@@ -52,6 +52,18 @@ a {
   font-size: 0.8rem;
 }
 
+.sidebar__logo-mark--image {
+  padding: 0;
+  background: transparent;
+}
+
+.sidebar__logo-mark--image img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: block;
+}
+
 .sidebar__logo-text {
   margin-left: 0.75rem;
 }
@@ -323,43 +335,43 @@ select:focus {
 }
 
 .tag--status-new {
-  background: #dbebff;
+  background: #dbeafe;
   color: #1d4ed8;
 }
 
 .tag--status-in_progress {
-  background: #e0f2fe;
-  color: #0369a1;
-}
-
-.tag--status-closed {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.tag--status-auto_closed {
   background: #dcfce7;
   color: #15803d;
 }
 
+.tag--status-closed {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.tag--status-auto_closed {
+  background: #9ca3af;
+  color: #111827;
+}
+
 .tag--priority-p1 {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .tag--priority-p2 {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.tag--priority-p3 {
   background: #ffedd5;
   color: #c2410c;
 }
 
-.tag--priority-p3 {
-  background: #e0f2fe;
-  color: #0369a1;
-}
-
 .tag--priority-p4 {
-  background: #e5e7eb;
-  color: #374151;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .ticket-layout {

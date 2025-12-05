@@ -13,6 +13,7 @@ export default function LeadsPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
@@ -44,13 +45,15 @@ export default function LeadsPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tickets.filter((t) => {
+      if (statusFilter && t.status !== statusFilter) return false;
+      if (priorityFilter && t.priority !== priorityFilter) return false;
       if (!q) return true;
       const haystack = `${t.subject || ""} ${t.customer_email || ""} ${
         t.customer_username || ""
       }`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [tickets, search]);
+  }, [tickets, search, statusFilter, priorityFilter]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -82,7 +85,7 @@ export default function LeadsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1>Пользователи / Лиды</h1>
+          <h1>Обращения</h1>
           <p className="page-header__subtitle">
             Управление входящими обращениями из Telegram, почты и портала.
           </p>
@@ -123,6 +126,21 @@ export default function LeadsPage() {
                 <option value="in_progress">В работе</option>
                 <option value="closed">Закрыт</option>
                 <option value="auto_closed">Авто‑закрыт</option>
+              </select>
+            </label>
+          </div>
+          <div className="filters__item">
+            <label className="label">
+              Приоритет
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+              >
+                <option value="">Все</option>
+                <option value="P1">P1</option>
+                <option value="P2">P2</option>
+                <option value="P3">P3</option>
+                <option value="P4">P4</option>
               </select>
             </label>
           </div>

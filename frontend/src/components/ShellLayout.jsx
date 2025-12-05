@@ -1,12 +1,15 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import logo from "../assets/logo.png";
 
 export default function ShellLayout({ children }) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar__logo">
-          <div className="sidebar__logo-mark">KZ</div>
+          <div className="sidebar__logo-mark sidebar__logo-mark--image">
+            <img src={logo} alt="Kazakhtelecom" />
+          </div>
           <div className="sidebar__logo-text">
             <span className="sidebar__logo-title">Kazakhtelecom</span>
             <span className="sidebar__logo-subtitle">HelpDesk AI</span>
@@ -15,15 +18,15 @@ export default function ShellLayout({ children }) {
         <nav className="sidebar__nav">
           <NavLink to="/dashboard" className={({ isActive }) => navClass(isActive)}>
             <span className="sidebar__nav-dot" />
-            Дашборд
+            Статистика
           </NavLink>
           <NavLink to="/leads" className={({ isActive }) => navClass(isActive)}>
             <span className="sidebar__nav-dot" />
-            Пользователи / Лиды
+            Обращения
           </NavLink>
           <NavLink to="/faq" className={({ isActive }) => navClass(isActive)}>
             <span className="sidebar__nav-dot" />
-            База знаний
+            Шаблоны
           </NavLink>
         </nav>
         <div className="sidebar__footer">v0.1 • AI Help Desk</div>
@@ -41,4 +44,3 @@ export default function ShellLayout({ children }) {
 function navClass(isActive) {
   return `sidebar__nav-link${isActive ? " sidebar__nav-link--active" : ""}`;
 }
-
